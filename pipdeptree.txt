@@ -1,0 +1,1 @@
+pipdeptree --warn silence | grep -E '^\w+' > requirements.txt
