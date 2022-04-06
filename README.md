@@ -8,7 +8,7 @@ Este repositório corresponde ao projeto final de programação da disciplina de
 
 Para definir as configurações do projeto, instale a versão do Python utilizada e o instalador de pacotes pip. Depois, siga as etapas para criação e ativação do ambiente de desenvolvimento de acordo com o seu sistema operacional na pasta **root** desse repositório.
 
-### Clone o repositório pyDash utilizado
+### Clone o repositório PyDash utilizado
 
 - No terminal, execute
 ```bash
