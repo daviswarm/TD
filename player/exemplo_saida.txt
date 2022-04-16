@@ -1,0 +1,10 @@
+> Finalization module Player
+Pauses number: 0
+Average QI: 9.55
+  >> Standard deviation: 1.12
+  >> Variance: 1.25
+Average QI distance: 0.02
+  >> Standard deviation: 0.15
+  >> Variance: 0.02
+> Finalization module R2A_AverageThroughput
+> Finalization module ConnectionHandler
