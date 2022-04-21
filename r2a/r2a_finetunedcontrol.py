@@ -14,11 +14,95 @@ from base.whiteboard import *
 from r2a.ir2a import IR2A
 import time
 
+# Classe da máquina de estados finitos (FSM)
+class FSM():
+
+    def __init__(self, q_max, q_min, m, n):
+        self.current_state = 'lc'
+        self.prev_state = 'lc'
+        self.prev_lc = 0
+        self.prev_q = 0
+        self.q_max = q_max
+        self.q_min = q_min
+        self.current_l = 0
+        self.current_q = 0
+        self.m_chks = 0
+        self.m_max = m
+        self.n_chks = 0
+        self.n_max = n
+
+    # Define a lista de estados
+    def set_params(self, l, q, quality, max_quality):
+        self.current_l = l
+        self.current_q = q
+        increment = 2
+        
+        # Se a qualidade for maior que zero, pode ter decremento
+        if (quality != 0):
+            l_minus = -increment
+        else:
+            l_minus = 0
+        
+        # Se a qualidade for menor que o máximo especificado, pode ter incremento
+        if (quality < max_quality):
+            l_plus = increment
+        else:
+            l_plus = 0
+
+        self.states = {'lc': 0, 'l0': -quality, 'l+': l_plus, 'l-': l_minus, 'IDLE': 0}
+
+    # Verifica as codições atuais
+    def get_conditions(self):
+        # Se q(t) < q_min --> estado l0
+        if (self.current_q < self.q_min):
+            return 'l0'
+
+        # Se não, se q(t) > q_max --> estado IDLE
+        elif (self.current_q > self.q_max):
+            return 'IDLE'
+        
+        # Se não, se q_min <= q(t) <= q_max --> estado l+, l- ou lc
+        elif (self.current_q >= self.q_min and self.current_q <= self.q_max):
+            if (self.current_l > self.prev_lc and self.m_chks >= self.m_max):
+                self.m_chks = 0
+                return 'l+'
+            
+            elif (self.current_l > self.prev_lc and self.m_chks < self.m_max):
+                self.m_chks += 1
+                return 'lc'
+            
+            elif (self.current_l < self.prev_lc and self.n_chks >= self.n_max):
+                self.n_chks = 0
+                return 'l-'
+            
+            elif (self.current_l < self.prev_lc and self.n_chks < self.n_max):
+                self.n_chks += 1
+                return 'lc'
+            
+            else:
+                return 'lc'
+
+    # Atualiza o estado e retorna o incremento para a próxima qualidade
+    def set_state(self):
+        self.prev_state = self.current_state
+        self.current_state = self.get_conditions()
+        if self.current_state != 'lc':
+            self.prev_lc = self.current_l
+            self.prev_q = self.current_q
+
+        return self.states[self.current_state]
+
+    # Calcula o tempo de pausa no estado IDLE
+    def get_IDLE_time(self, l, D_x, x):
+        delta_I = self.prev_q + x - (l*x)/D_x - self.q_max
+        return delta_I
 
 class R2A_FineTunedControl(IR2A):
+
     def __init__(self, id):
         IR2A.__init__(self, id)
         self.parsed_mpd = ''
+        
         # Control System
         self.qi = [] # list of qualities
         self.q0 = 30 # buffer time reference (constant) [s]
@@ -31,13 +115,14 @@ class R2A_FineTunedControl(IR2A):
         self.ts = 0 # chunk download start [s]
         self.lk = 0 # chunk bitrate / quality level [kbps]
         self.l0 = 0 # lowest quality level [kbps]
+        
         # State Machine
         self.q_max = self.q0 + 20 # maximum security limit [s]
         self.q_min = self.q0 - 20 # minimum security limit [s]
         self.m = 3 # m chunk(s) to evaluate l+
         self.n = 1 # n chunk(s) to evaluate l-
         self.quality = 10 # adaptive quality
-        self.statemachine = FSM(self.q0, self.q_max, self.q_min, self.m, self.n)
+        self.statemachine = FSM(self.q_max, self.q_min, self.m, self.n)
     
     def handle_xml_request(self, msg):
         self.send_down(msg)
@@ -46,23 +131,20 @@ class R2A_FineTunedControl(IR2A):
         # Capture the list with available qualities
         self.parsed_mpd = parse_mpd(msg.get_payload())
         self.qi = self.parsed_mpd.get_qi()
+        self.num_qi = len(self.qi)
         self.send_up(msg)
 
     def handle_segment_size_request(self, msg):
         # FSM receives the selected video level l(k) and buffer time q(t) from the control system
-        self.statemachine.set_params(self.lk,self.qt)
-        self.statemachine.set_state()
-        print( "\n\n",self.statemachine.current_state,"\n")
-        # FSM evaluates lc states according to safety limits
-        if(self.statemachine.current_state!='lc'):
-            if(self.statemachine.current_state=='l-'):
-                if(self.quality!=0):
-                    self.quality-=2
-            elif(self.statemachine.current_state=='l+' or self.statemachine.current_state=='IDLE'):
-                if(self.quality<len(self.qi)-3):       
-                    self.quality+=2
-            elif(self.statemachine.current_state=='l0'):
-                self.quality=0   
+        self.statemachine.set_params(self.lk, self.qt, self.quality, self.num_qi-3)
+        self.quality += self.statemachine.set_state()
+
+        if (self.statemachine.current_state == 'IDLE'):
+            interval = self.statemachine.get_IDLE_time(self.lk, self.D, self.x)
+            time.sleep(abs(interval))
+
+        print("\n\n", f'estado={self.statemachine.current_state}, buffer={self.qt}, lk={self.lk}',"\n")
+        
         msg.add_quality_id(self.qi[self.quality]) 
         self.ts = time.perf_counter()
         self.send_down(msg)
@@ -76,76 +158,9 @@ class R2A_FineTunedControl(IR2A):
         self.l0 = self.D/self.de
         self.lk = (((self.qt-self.q0)/self.x) + 1)*self.l0
         self.send_up(msg)
+
     def initialize(self):
         pass
 
     def finalization(self):
         pass
-
-# Finite state machine class (FSM)
-class FSM():
-    def __init__(self, qi_0, q_max, q_min, m, n):
-        self.min_rate = qi_0
-        self.current_state = 'lc'
-        self.prev_state = 'lc'
-        self.prev_lc = 0
-        self.q_max = q_max
-        self.q_min = q_min
-        self.current_l = 0
-        self.current_q = 0
-        self.m_chks = 0
-        self.m_max = m
-        self.n_chks = 0
-        self.n_max = n
-
-    # List of states
-    def set_params(self, l, q):
-        self.current_l = l
-        self.current_q = q
-        self.states = {'lc': self.prev_lc, 'l0': self.min_rate, 'l+': self.current_l, 'l-': self.current_l, 'IDLE': self.current_l}
-
-    # Current conditions
-    def get_conditions(self):
-        # q(t) < q_min --> l0 state
-        if (self.current_q < self.q_min):
-            return 'l0'
-
-        # q(t) > q_max --> IDLE state
-        elif (self.current_q > self.q_max):
-            return 'IDLE'
-        
-        # q_min <= q(t) <= q_max --> l+, l- or lc
-        elif (self.current_q >= self.q_min and self.current_q <= self.q_max):
-            if (self.current_l > self.prev_lc and self.m_chks >= self.m_max):
-                self.m_chks = 0
-                return 'l+'
-            elif (self.current_l > self.prev_lc and self.m_chks < self.m_max):
-                self.m_chks += 1
-                return 'lc'
-            elif (self.current_l < self.prev_lc and self.n_chks >= self.n_max):
-                self.n_chks = 0
-                return 'l-'
-            elif (self.current_l < self.prev_lc and self.n_chks < self.n_max):
-                self.n_chks += 1
-                return 'lc'
-            else:
-                return 'lc'
-
-    # Update state and return next lc
-    def set_state(self, forced_state=''):
-        self.prev_state = self.current_state
-        if forced_state == '':
-            self.current_state = self.get_conditions()
-        else:
-            self.current_state = forced_state
-        self.prev_lc = self.states[self.current_state]
-
-        if self.current_state != 'IDLE':
-            return self.states[self.current_state]
-        else:
-            # IDLE state --> pause in download
-            return 0
-
-    # Calculates pause time in IDLE state
-    def get_IDLE_time(self, prev_q, x, ln, D_x):
-        pass # delta_I = prev_q + x - (ln*x)/D_x - self.q_max

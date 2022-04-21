@@ -36,15 +36,19 @@ class FSM():
             if (self.current_l > self.prev_lc and self.m_chks >= self.m_max):
                 self.m_chks = 0
                 return 'l+'
+            
             elif (self.current_l > self.prev_lc and self.m_chks < self.m_max):
                 self.m_chks += 1
                 return 'lc'
+            
             elif (self.current_l < self.prev_lc and self.n_chks >= self.n_max):
                 self.n_chks = 0
                 return 'l-'
+            
             elif (self.current_l < self.prev_lc and self.n_chks < self.n_max):
                 self.n_chks += 1
                 return 'lc'
+            
             else:
                 return 'lc'
 
