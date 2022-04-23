@@ -13,6 +13,7 @@ from player.parser import *
 from base.whiteboard import *
 from r2a.ir2a import IR2A
 import time
+import numpy as np
 
 # Classe da máquina de estados finitos (FSM)
 class FSM():
@@ -103,13 +104,17 @@ class R2A_FineTunedControl(IR2A):
         self.ts = 0 # chunk download start [s]
         self.lk = 0 # chunk bitrate / quality level [kbps]
         self.l0 = 0 # lowest quality level [kbps]
+        self.kp = 0.01 # proportional gain
 
         # State Machine
         self.q_max = self.q0 + 20 # maximum security limit [s]
         self.q_min = self.q0 - 20 # minimum security limit [s]
-        self.m = 9 # m chunk(s) to evaluate l+
+        self.m = 10 # m chunk(s) to evaluate l+
         self.n = 3 # n chunk(s) to evaluate l-
         self.quality = 10 # adaptive quality
+
+        self.valores_lk = []
+        self.t0 = time.perf_counter()
 
     def handle_xml_request(self, msg):
         self.ts = time.perf_counter()
@@ -120,6 +125,19 @@ class R2A_FineTunedControl(IR2A):
         self.parsed_mpd = parse_mpd(msg.get_payload())
         self.qi = self.parsed_mpd.get_qi()
         self.statemachine = FSM(self.qi[0], self.q_max, self.q_min, self.m, self.n)
+        
+        # Calcula o valor do lk
+        self.te = time.perf_counter() - self.ts
+        self.S = msg.get_bit_length()
+        self.D = self.S/(self.te)
+        self.l0 = self.D/self.de
+        # self.lk = (((self.qt-self.q0)/self.x) + 1)*self.l0
+        G = -self.de*self.kp/self.x
+        self.lk = (np.exp(G*(time.perf_counter()-self.t0))/self.x + 1)*self.l0
+        
+        # Salva o valor do lk
+        self.valores_lk.append(self.lk)
+
         self.send_up(msg)
 
     def handle_segment_size_request(self, msg):
@@ -130,7 +148,7 @@ class R2A_FineTunedControl(IR2A):
         # Verifica se está no estado IDLE e dá uma pausa
         if (self.statemachine.current_state == 'IDLE'):
             interval = self.statemachine.get_IDLE_time(self.lk, self.D, self.x)
-            time.sleep(abs(interval))
+            time.sleep(interval)
 
         # Seleciona o maior valor que satisfaz o l definido pelo FSM
         selected_qi = self.qi[0]
@@ -151,7 +169,12 @@ class R2A_FineTunedControl(IR2A):
         self.D = self.S/(self.te) # Removi aquele 1000*8 que multiplicava aqui
         self.qt = self.whiteboard.get_amount_video_to_play()
         self.l0 = self.D/self.de
-        self.lk = (((self.qt-self.q0)/self.x) + 1)*self.l0
+        #self.lk = (((self.qt-self.q0)/self.x) + 1)*self.l0
+        G = -self.de*self.kp/self.x
+        self.lk = (np.exp(G*(time.perf_counter()-self.t0))/self.x + 1)*self.l0
+
+        # Salva o valor do lk
+        self.valores_lk.append(self.lk)
 
         print(f'\nS={self.S}, D={self.D}, qt={self.qt}, l0={self.l0}, lk={self.lk}\n')
 
@@ -161,4 +184,4 @@ class R2A_FineTunedControl(IR2A):
         pass
 
     def finalization(self):
-        pass
+        np.save('valores_lk.npy', self.valores_lk)
