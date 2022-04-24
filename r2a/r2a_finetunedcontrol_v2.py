@@ -33,7 +33,7 @@ class FSM():
         self.n_chks = 0
         self.n_max = n
 
-    # Define a lista de estados
+    # Define o dicionário com os estados
     def set_params(self, l, q):
         self.current_l = l
         self.current_q = q
@@ -112,6 +112,7 @@ class R2A_FineTunedControl(IR2A):
         self.n = 3 # n chunk(s) to evaluate l-
 
         self.t0 = time.perf_counter()
+        self.states = {'lc': 0, 'l0': 0, 'l+': 0, 'l-': 0, 'IDLE': 0}
 
     def handle_xml_request(self, msg):
         self.ts = time.perf_counter()
@@ -149,6 +150,9 @@ class R2A_FineTunedControl(IR2A):
             if l > i:
                 selected_qi = i
         
+        # Incrementa o contador do estado
+        self.states[self.statemachine.current_state] += 1
+
         msg.add_quality_id(selected_qi) 
         self.ts = time.perf_counter()
         self.send_down(msg)
@@ -171,6 +175,7 @@ class R2A_FineTunedControl(IR2A):
         pass
 
     def finalization(self):
+        states_vector = [self.states['lc'], self.states['l0'], self.states['l+'], self.states['l-'], self.states['IDLE']]
         qi = self.whiteboard.get_playback_qi()
         buffer = self.whiteboard.get_playback_buffer_size()
         pauses = self.whiteboard.get_playback_pauses()
@@ -181,3 +186,4 @@ class R2A_FineTunedControl(IR2A):
         np.save('results/buffer.npy', buffer)
         np.save('results/pauses.npy', pauses)
         np.save('results/history.npy', history)
+        np.save('results/states.npy', states_vector)
