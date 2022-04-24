@@ -77,7 +77,6 @@ class FSM():
         self.prev_state = self.current_state
         self.current_state = self.get_conditions()
         self.prev_lc = self.states[self.current_state]
-        self.prev_q = self.current_q
 
         return self.states[self.current_state]
 
@@ -92,7 +91,7 @@ class R2A_FineTunedControl(IR2A):
         IR2A.__init__(self, id)
         self.parsed_mpd = ''
         
-        # Control System
+        # Sistema de controle
         self.qi = [] # list of qualities
         self.q0 = 30 # buffer time reference (constant) [s]
         self.qt = 0 # buffer time [s]
@@ -106,14 +105,12 @@ class R2A_FineTunedControl(IR2A):
         self.l0 = 0 # lowest quality level [kbps]
         self.kp = 0.01 # proportional gain
 
-        # State Machine
+        # Máquina de estados
         self.q_max = self.q0 + 20 # maximum security limit [s]
         self.q_min = self.q0 - 20 # minimum security limit [s]
         self.m = 10 # m chunk(s) to evaluate l+
         self.n = 3 # n chunk(s) to evaluate l-
-        self.quality = 10 # adaptive quality
 
-        self.valores_lk = []
         self.t0 = time.perf_counter()
 
     def handle_xml_request(self, msg):
@@ -121,7 +118,7 @@ class R2A_FineTunedControl(IR2A):
         self.send_down(msg)
 
     def handle_xml_response(self, msg):
-        # Capture the list with available qualities
+        # Captura a lista de qualidades disponíveis
         self.parsed_mpd = parse_mpd(msg.get_payload())
         self.qi = self.parsed_mpd.get_qi()
         self.statemachine = FSM(self.qi[0], self.q_max, self.q_min, self.m, self.n)
@@ -131,17 +128,13 @@ class R2A_FineTunedControl(IR2A):
         self.S = msg.get_bit_length()
         self.D = self.S/(self.te)
         self.l0 = self.D/self.de
-        # self.lk = (((self.qt-self.q0)/self.x) + 1)*self.l0
         G = -self.de*self.kp/self.x
         self.lk = (np.exp(G*(time.perf_counter()-self.t0))/self.x + 1)*self.l0
-        
-        # Salva o valor do lk
-        self.valores_lk.append(self.lk)
 
         self.send_up(msg)
 
     def handle_segment_size_request(self, msg):
-        # FSM receives the selected video level l(k) and buffer time q(t) from the control system
+        # Passa os valores de lk e q
         self.statemachine.set_params(self.lk, self.qt)
         l = self.statemachine.set_state()
 
@@ -155,28 +148,22 @@ class R2A_FineTunedControl(IR2A):
         for i in self.qi:
             if l > i:
                 selected_qi = i
-
-        print(f'\nestado={self.statemachine.current_state}, buffer={self.qt}, lk={self.lk}\n')
         
         msg.add_quality_id(selected_qi) 
         self.ts = time.perf_counter()
         self.send_down(msg)
 
     def handle_segment_size_response(self, msg):
-        # Selection of quality level l(k) and buffer time q(t) in the control system
+        # Calcula a qualidade l(k) e o tempo de buffer
         self.te = time.perf_counter() - self.ts
         self.S = msg.get_bit_length()
-        self.D = self.S/(self.te) # Removi aquele 1000*8 que multiplicava aqui
+        self.D = self.S/(self.te)
         self.qt = self.whiteboard.get_amount_video_to_play()
         self.l0 = self.D/self.de
-        #self.lk = (((self.qt-self.q0)/self.x) + 1)*self.l0
         G = -self.de*self.kp/self.x
         self.lk = (np.exp(G*(time.perf_counter()-self.t0))/self.x + 1)*self.l0
 
-        # Salva o valor do lk
-        self.valores_lk.append(self.lk)
-
-        print(f'\nS={self.S}, D={self.D}, qt={self.qt}, l0={self.l0}, lk={self.lk}\n')
+        self.statemachine.prev_q = self.qt
 
         self.send_up(msg)
 
@@ -184,4 +171,13 @@ class R2A_FineTunedControl(IR2A):
         pass
 
     def finalization(self):
-        np.save('valores_lk.npy', self.valores_lk)
+        qi = self.whiteboard.get_playback_qi()
+        buffer = self.whiteboard.get_playback_buffer_size()
+        pauses = self.whiteboard.get_playback_pauses()
+        history = self.whiteboard.get_playback_history()
+
+        # Salva os dados
+        np.save('results/qi.npy', qi)
+        np.save('results/buffer.npy', buffer)
+        np.save('results/pauses.npy', pauses)
+        np.save('results/history.npy', history)
