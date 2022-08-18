@@ -1,0 +1,19 @@
+Finalization modules phase.
+> Finalization module Player
+Pauses number: 0
+Average QI: 17.99
+  >> Standard deviation: 3.63
+  >> Variance: 13.19
+Average QI distance: 0.05
+  >> Standard deviation: 0.6
+  >> Variance: 0.36
+> Finalization module R2A_FineTunedControl
+> Finalization module ConnectionHandler
+
+gerado com 
+"buffering_until": 5,
+    "max_buffer_size": 60,
+    "playbak_step": 1,
+    "traffic_shaping_profile_interval": "5",
+    "traffic_shaping_profile_sequence": "LLL",
+    "traffic_shaping_seed": "1",
