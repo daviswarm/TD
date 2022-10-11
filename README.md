@@ -39,7 +39,7 @@ python3.9 -m venv TDDash
 
 - No ambiente Windows, no bash do git, execute
 ```bash
-TDDash/Scripts/activate
+source TDDash/Scripts/activate
 ```
 
 - No ambiente Linux, execute
