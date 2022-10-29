@@ -1,6 +1,6 @@
 # TD-2021-2_ABR-algorithm
 
-![](https://img.shields.io/badge/docs-v0.1-green)
+![](https://img.shields.io/badge/version-v0.1-blue)
 
 Este repositório corresponde ao projeto final de programação da disciplina de Transmissão de Dados da Universidade de Brasília e implementa uma versão adaptada do algoritmo ABR desenvolvido por *Ito et al.* publicado como
 
