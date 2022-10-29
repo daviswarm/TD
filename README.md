@@ -1,6 +1,14 @@
-# Transmissão de Dados
+# TD-2021-2_ABR-algorithm
 
-Este repositório corresponde ao projeto final de programação da disciplina de Transmissão de Dados da Universidade de Brasília.
+![](https://img.shields.io/badge/docs-v0.1-green)
+
+Este repositório corresponde ao projeto final de programação da disciplina de Transmissão de Dados da Universidade de Brasília e implementa uma versão adaptada do algoritmo ABR desenvolvido por *Ito et al.* publicado como
+
+> M. S. Ito, D. Bezerra, S. Fernandes, D. Sadok and G. Szabo, ["A fine-tuned control-theoretic approach for dynamic adaptive streaming over HTTP"](https://ieeexplore.ieee.org/document/7405532), 2015 IEEE Symposium on Computers and Communication (ISCC), 2015, pp. 301-308, doi: 10.1109/ISCC.2015.7405532.
+
+Além disso, para simulação do algoritmo, foi utilizado a plataforma PyDash desenvolvida por *Marotta et al.* disponível neste [respositório](https://github.com/mfcaetano/pydash.git) e publicada como
+
+> M. A. Marotta, G. C. Souza, M. Holanda and M. F. Caetano, ["PyDash - A Framework Based Educational Tool for Adaptive Streaming Video Algorithms Study"](https://ieeexplore.ieee.org/document/9637335), 2021 IEEE Frontiers in Education Conference (FIE), 2021, pp. 1-8, doi: 10.1109/FIE49875.2021.9637335.
 
 ## Configurações
 
@@ -31,7 +39,7 @@ python3.9 -m venv TDDash
 
 - No ambiente Windows, no bash do git, execute
 ```bash
-TDDash/Scripts/activate
+source TDDash/Scripts/activate
 ```
 
 - No ambiente Linux, execute
@@ -39,13 +47,7 @@ TDDash/Scripts/activate
 source TDDash/bin/activate
 ```
 
-### Instale as dependências desse repositório
-
-```bash
-pip install -r requirements.txt
-```
-
-### Instale as dependências do repositório pyDash clonado
+### Instale as dependências do repositório PyDash clonado
 
 ```bash
 pip install -r pydash/requirements.txt
@@ -70,7 +72,3 @@ e execute o comando
 ``` bash
 python main.py
 ```
-
-## Resultados
-
-Aqui estão alguns dos resultados obtidos com o algoritmo implementado.

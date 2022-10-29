@@ -1,2 +1,0 @@
-pipdeptree==2.2.1
-setuptools==56.0.0
